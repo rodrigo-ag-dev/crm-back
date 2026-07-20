@@ -1,0 +1,8 @@
+.gradle
+build
+bin
+*.log
+.env
+.vscode
+.idea
+HELP.md
