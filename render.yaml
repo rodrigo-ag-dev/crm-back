@@ -4,7 +4,6 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    rootDir: crm-back/api
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/healthcheck
