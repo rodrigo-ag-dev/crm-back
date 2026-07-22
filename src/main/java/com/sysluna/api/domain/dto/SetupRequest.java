@@ -1,18 +1,17 @@
 package com.sysluna.api.domain.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
-@AllArgsConstructor
-@NoArgsConstructor
-public class AuthDTO {
-  @Schema(description = "Tenant slug to join. Defaults to the platform's default tenant when omitted "
+@Schema(description = "Request to create the first admin user of a tenant")
+public class SetupRequest {
+
+  @Schema(description = "Tenant slug to set up. Defaults to the platform's default tenant when omitted "
       + "(single-tenant/local-dev convenience).", example = "acme")
   private String tenantSlug;
 
@@ -25,11 +24,11 @@ public class AuthDTO {
   private String fullName;
 
   @NotBlank(message = "Email is required")
+  @Email(message = "Email must be valid")
   @Schema(description = "User email", example = "john@example.com")
   private String email;
 
   @NotBlank(message = "Password is required")
-  @Schema(description = "User password", example = "password123")
+  @Schema(description = "Password (minimum 6 characters)", example = "password123", minLength = 6)
   private String password;
-
 }

@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -29,15 +30,32 @@ import jakarta.servlet.http.Cookie;
 @Transactional
 class AuthControllerIT {
 
+  // Fixed (not random) so repeated test runs reuse the same provisioned tenant schema
+  // instead of leaving a new orphan schema behind on every run - schema creation isn't
+  // rolled back by @Transactional since Flyway/DDL runs outside the test transaction.
+  private static final String SETUP_TEST_TENANT_SLUG = "authit_setup";
+
   @Autowired
   private MockMvc mockMvc;
 
   @Autowired
   private RateLimiter rateLimiter;
 
+  @Value("${app.provisioning.secret}")
+  private String provisioningSecret;
+
   @BeforeEach
   void resetRateLimiter() {
     rateLimiter.reset();
+  }
+
+  private void provisionSetupTestTenant() throws Exception {
+    mockMvc.perform(post("/api/tenants")
+            .header("X-Provisioning-Key", provisioningSecret)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"name":"Auth IT Setup Tenant","slug":"%s"}
+                """.formatted(SETUP_TEST_TENANT_SLUG)));
   }
 
   private String uniqueEmail() {
@@ -70,24 +88,29 @@ class AuthControllerIT {
 
   @Test
   void setupCreatesFirstAdminUserWhenNoUsersExist() throws Exception {
+    provisionSetupTestTenant();
+    String email = uniqueEmail();
+
     mockMvc.perform(post("/api/setup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
-                {"username":"admin","fullName":"Administrator","email":"admin-setup@example.com","password":"SenhaForte123"}
-                """))
+                {"tenantSlug":"%s","username":"admin","fullName":"Administrator","email":"%s","password":"SenhaForte123"}
+                """.formatted(SETUP_TEST_TENANT_SLUG, email)))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.email").value("admin-setup@example.com"))
+        .andExpect(jsonPath("$.email").value(email))
         .andExpect(jsonPath("$.role").value("ADMIN"));
   }
 
   @Test
   void setupIgnoresStaleAuthCookie() throws Exception {
+    provisionSetupTestTenant();
+
     mockMvc.perform(post("/api/setup")
             .cookie(new Cookie("crm_token", "stale-token"))
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
-                {"username":"admin2","fullName":"Administrator Two","email":"admin-setup-2@example.com","password":"SenhaForte123"}
-                """))
+                {"tenantSlug":"%s","username":"admin2","fullName":"Administrator Two","email":"%s","password":"SenhaForte123"}
+                """.formatted(SETUP_TEST_TENANT_SLUG, uniqueEmail())))
         .andExpect(status().isCreated());
   }
 

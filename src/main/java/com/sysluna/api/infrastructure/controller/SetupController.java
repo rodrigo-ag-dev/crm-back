@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sysluna.api.application.UserService;
-import com.sysluna.api.domain.dto.CreateUserRequest;
+import com.sysluna.api.domain.dto.SetupRequest;
 import com.sysluna.api.domain.dto.UserDTO;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,7 +17,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/setup")
-@Tag(name = "Setup", description = "Initial setup for first admin user")
+@Tag(name = "Setup", description = "Initial setup for a tenant's first admin user")
 public class SetupController {
 
   private final UserService userService;
@@ -27,10 +27,11 @@ public class SetupController {
   }
 
   @PostMapping
-  @Operation(summary = "Create first admin user", description = "Creates the initial admin account when no users exist yet")
-  public ResponseEntity<UserDTO> createFirstAdmin(@Valid @RequestBody CreateUserRequest request) {
+  @Operation(summary = "Create first admin user", description = "Creates the initial admin account for a tenant when it has no users yet")
+  public ResponseEntity<UserDTO> createFirstAdmin(@Valid @RequestBody SetupRequest request) {
     UserDTO created = userService.createFirstAdminUser(
-        request.getUsername(), request.getFullName(), request.getEmail(), request.getPassword());
+        request.getTenantSlug(), request.getUsername(), request.getFullName(), request.getEmail(),
+        request.getPassword());
     return ResponseEntity.status(HttpStatus.CREATED).body(created);
   }
 }

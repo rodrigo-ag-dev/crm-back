@@ -33,8 +33,13 @@ public class UserPersistenceAdapter implements UserPortOut {
   }
 
   @Override
-  public List<User> findAll() {
-    return userRepository.findAll();
+  public Optional<User> findByIdAndTenantId(String id, String tenantId) {
+    return userRepository.findByIdAndTenantId(id, tenantId);
+  }
+
+  @Override
+  public List<User> findAllByTenantId(String tenantId) {
+    return userRepository.findAllByTenantId(tenantId);
   }
 
   @Override

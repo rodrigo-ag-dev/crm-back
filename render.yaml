@@ -20,3 +20,7 @@ services:
         sync: false
       - key: COOKIE_SECURE
         value: "true"
+      - key: APP_PROVISIONING_SECRET
+        sync: false
+      - key: TENANT_DEFAULT_SLUG
+        value: "default"

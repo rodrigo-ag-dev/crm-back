@@ -9,6 +9,7 @@ public interface UserPortOut {
   User findByEmail(String email);
   User findByUsername(String username);
   Optional<User> findById(String id);
-  List<User> findAll();
+  Optional<User> findByIdAndTenantId(String id, String tenantId);
+  List<User> findAllByTenantId(String tenantId);
   User save(User user);
 }

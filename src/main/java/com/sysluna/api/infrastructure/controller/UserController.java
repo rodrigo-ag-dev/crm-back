@@ -20,6 +20,8 @@ import com.sysluna.api.domain.dto.UpdateUserActiveDTO;
 import com.sysluna.api.domain.dto.UpdateUserRequest;
 import com.sysluna.api.domain.dto.UpdateUserRoleDTO;
 import com.sysluna.api.domain.dto.UserDTO;
+import com.sysluna.api.domain.exception.NotFoundException;
+import com.sysluna.api.infrastructure.security.CurrentUserProvider;
 import com.sysluna.api.ports.in.UserPortIn;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,6 +41,7 @@ import lombok.AllArgsConstructor;
 @Tag(name = "Users", description = "User management API")
 public class UserController {
   private final UserPortIn userPortIn;
+  private final CurrentUserProvider currentUserProvider;
 
   @GetMapping
   @PreAuthorize("hasRole('ADMIN')")
@@ -55,7 +58,13 @@ public class UserController {
       @ApiResponse(responseCode = "404", description = "User not found")
   })
   public UserDTO getUserByEmail(@PathVariable String email) {
-    return userPortIn.getUserByEmail(email);
+    UserDTO user = userPortIn.getUserByEmail(email);
+    String currentTenantId = currentUserProvider.getCurrentUser().getTenantId();
+    if (!currentTenantId.equals(user.getTenantId())) {
+      // Same response as "not found" - avoids confirming another tenant's user exists.
+      throw new NotFoundException("User not found with email: " + email);
+    }
+    return user;
   }
 
   @PostMapping

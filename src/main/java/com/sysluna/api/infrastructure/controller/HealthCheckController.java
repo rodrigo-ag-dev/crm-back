@@ -29,6 +29,6 @@ public class HealthCheckController {
   @Operation(summary = "Verify system integrity", description = "Returns the integrity stage of the system and whether the initial setup still needs to run")
   @ApiResponse(responseCode = "200", description = "Online and healthy")
   public ResponseEntity<HealthCheckResponse> healthcheck() {
-    return ResponseEntity.ok(new HealthCheckResponse("UP", !userService.hasAnyUsers()));
+    return ResponseEntity.ok(new HealthCheckResponse("UP", userService.isDefaultTenantSetupRequired()));
   }
 }

@@ -14,6 +14,8 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.sysluna.api.infrastructure.tenant.TenantContext;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private static final Set<String> PUBLIC_PATHS = Set.of(
       "/api/healthcheck",
       "/api/setup",
+      "/api/tenants",
       "/api/auth/login",
       "/api/auth/register",
       "/api/auth/logout",
@@ -99,6 +102,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        if (userDetails instanceof AppUserPrincipal principal) {
+          TenantContext.set(principal.getTenantSchema());
+        }
       }
     } catch (Exception e) {
       logger.error("Could not set user authentication in security context", e);
@@ -106,7 +113,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    filterChain.doFilter(request, response);
+    try {
+      filterChain.doFilter(request, response);
+    } finally {
+      // Threads are pooled and reused across requests - never let one request's
+      // tenant schema leak into the next request handled by the same thread.
+      TenantContext.clear();
+    }
   }
 
   private boolean isPublicPath(String path) {

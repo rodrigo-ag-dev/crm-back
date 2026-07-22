@@ -16,11 +16,15 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"user\"")
+@Table(name = "\"user\"", schema = "public")
 @NoArgsConstructor
 @AllArgsConstructor
 public class User extends BaseModel {
-  @Column(nullable = false, unique = true)
+  @Column(name = "tenant_id", nullable = false)
+  private String tenantId;
+
+  // Unique per tenant, not globally (see UNIQUE (tenant_id, username) in the global migration).
+  @Column(nullable = false)
   private String username;
 
   @Column(name = "full_name", nullable = false)

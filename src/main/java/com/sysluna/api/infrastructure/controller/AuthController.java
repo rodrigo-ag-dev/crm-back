@@ -103,7 +103,7 @@ public class AuthController {
   public ResponseEntity<UserDTO> currentUser() {
     User user = currentUserProvider.getCurrentUser();
     return ResponseEntity.ok(new UserDTO(user.getId(), user.getUsername(), user.getFullName(), user.getEmail(),
-        user.getRole(), user.isActive(), user.isMustChangePassword()));
+        user.getRole(), user.isActive(), user.isMustChangePassword(), user.getTenantId()));
   }
 
   @PostMapping("/change-password")
@@ -115,7 +115,7 @@ public class AuthController {
   }
 
   @PostMapping("/register")
-  @Operation(summary = "Register a new user", description = "Creates a new user account")
+  @Operation(summary = "Register a new user", description = "Creates a new user account in a tenant (defaults to the platform's default tenant)")
   public ResponseEntity<?> registerUser(@Valid @RequestBody AuthDTO auth) {
     try {
       userService.getUserByEmail(auth.getEmail());
@@ -125,17 +125,13 @@ public class AuthController {
       // User does not exist yet, continue with registration.
     }
 
-    User user = new User();
-    user.setUsername(auth.getUsername());
-    user.setFullName(auth.getFullName());
-    user.setEmail(auth.getEmail());
-    user.setPasswordHash(passwordEncoder.encode(auth.getPassword() != null ? auth.getPassword() : ""));
-
-    User savedUser = userService.saveUser(user);
+    User savedUser = userService.registerUser(
+        auth.getTenantSlug(), auth.getUsername(), auth.getFullName(), auth.getEmail(), auth.getPassword(),
+        passwordEncoder);
 
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(new UserDTO(savedUser.getId(), savedUser.getUsername(), savedUser.getFullName(), savedUser.getEmail(),
-            savedUser.getRole(), savedUser.isActive(), savedUser.isMustChangePassword()));
+            savedUser.getRole(), savedUser.isActive(), savedUser.isMustChangePassword(), savedUser.getTenantId()));
   }
 
   private ResponseCookie buildTokenCookie(String value, long maxAgeSeconds) {

@@ -15,9 +15,10 @@ public class UserDTO {
   private Role role;
   private boolean active;
   private boolean mustChangePassword;
+  private String tenantId;
 
   public UserDTO(String id, String username, String fullName, String email, Role role, boolean active,
-      boolean mustChangePassword) {
+      boolean mustChangePassword, String tenantId) {
     this.id = id;
     this.username = username;
     this.fullName = fullName;
@@ -25,5 +26,6 @@ public class UserDTO {
     this.role = role;
     this.active = active;
     this.mustChangePassword = mustChangePassword;
+    this.tenantId = tenantId;
   }
 }
