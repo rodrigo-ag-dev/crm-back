@@ -96,6 +96,13 @@ schema is known (e.g. at login), and email is unique across the whole platform, 
   + reserved-word blocklist) gates every path that turns a slug into literal SQL (`SET search_path`, Flyway's
   `schemas(...)`), since JDBC has no way to bind an identifier as a bound parameter.
 
+## Caching (Redis)
+
+- `infrastructure/config/CacheConfig` (`@EnableCaching`) wires a Redis-backed `CacheManager` (JSON values via `GenericJackson2JsonRedisSerializer`, no TTL — entries live until explicitly evicted, not until they expire).
+- `infrastructure/cache/TenantCacheResolver` namespaces every declared cache name by `TenantContext.get()` (e.g. cache `"stages"` becomes Redis cache `"stages::crm_acme"`), since Redis has no notion of the per-schema tenant isolation Postgres gives us for free. Any new cached method must go through this resolver (`@Cacheable(cacheNames = "...", cacheResolver = "tenantCacheResolver")`) rather than the default cache resolution — never cache without it, or one tenant's data can leak into another's reads.
+- Reads are cached lazily (populated only on a cache miss from an actual request, never eagerly/pre-warmed) and writes evict eagerly: `@CacheEvict(..., allEntries = true)` on the mutating service methods clears the whole cache region for the current tenant, since a single write can invalidate many derived reads (paged/sorted results, name-search matches) that aren't worth tracking individually. `StageService` is the reference implementation — a good template for caching another rarely-changing, tenant-scoped read (e.g. `Parameter`).
+- Local dev requires a running Redis (see root `CLAUDE.md`); `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD` env vars override the `application.properties` defaults, same pattern as the Postgres `DB_*` vars.
+
 ## Database
 
 - **Global** migrations (`src/main/resources/db/migration/global/`) manage the shared `public` schema (`tenant`,
