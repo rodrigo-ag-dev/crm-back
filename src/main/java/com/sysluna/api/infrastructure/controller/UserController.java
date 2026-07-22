@@ -59,8 +59,8 @@ public class UserController {
   })
   public UserDTO getUserByEmail(@PathVariable String email) {
     UserDTO user = userPortIn.getUserByEmail(email);
-    String currentTenantId = currentUserProvider.getCurrentUser().getTenantId();
-    if (!currentTenantId.equals(user.getTenantId())) {
+    com.sysluna.api.domain.model.User currentUser = currentUserProvider.getCurrentUser();
+    if (!currentUser.isPlatformAdmin() && !currentUser.getTenantId().equals(user.getTenantId())) {
       // Same response as "not found" - avoids confirming another tenant's user exists.
       throw new NotFoundException("User not found with email: " + email);
     }

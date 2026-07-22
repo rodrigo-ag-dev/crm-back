@@ -2,6 +2,8 @@ package com.sysluna.api.application;
 
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -47,13 +49,24 @@ public class UserService implements UserPortIn {
     this.defaultTenantSlug = defaultTenantSlug;
   }
 
+  /**
+   * Platform admins (User.isPlatformAdmin(), granted only via direct DB update - see the
+   * V3 migration) see every user across every tenant; everyone else sees only their own
+   * tenant's users, same as before.
+   */
   @Override
   public List<UserDTO> listAllUsers() {
-    String tenantId = currentUserProvider.getCurrentUser().getTenantId();
-    return userPortOut.findAllByTenantId(tenantId)
+    User current = currentUserProvider.getCurrentUser();
+    List<User> targetUsers = current.isPlatformAdmin()
+        ? userPortOut.findAll()
+        : userPortOut.findAllByTenantId(current.getTenantId());
+
+    Map<String, String> tenantNamesById = tenantRepository
+        .findAllById(targetUsers.stream().map(User::getTenantId).distinct().toList())
         .stream()
-        .map(UserService::toDTO)
-        .toList();
+        .collect(Collectors.toMap(Tenant::getId, Tenant::getName));
+
+    return targetUsers.stream().map(u -> toDTO(u, tenantNamesById.get(u.getTenantId()))).toList();
   }
 
   @Override
@@ -104,7 +117,7 @@ public class UserService implements UserPortIn {
     user.setRole(Role.ADMIN);
     user.setMustChangePassword(true);
 
-    return toDTO(userPortOut.save(user));
+    return toDTO(userPortOut.save(user), tenant.getName());
   }
 
   /**
@@ -141,6 +154,8 @@ public class UserService implements UserPortIn {
     User user = new User();
     // Tenant is always the current admin's own tenant - never accept it from the
     // request body, or an admin from one tenant could create users in another tenant.
+    // This holds even for platform admins: creating a user in another tenant isn't
+    // supported yet, only viewing/managing existing ones across tenants is.
     user.setTenantId(currentUserProvider.getCurrentUser().getTenantId());
     user.setUsername(createUserRequest.getUsername());
     user.setFullName(createUserRequest.getFullName());
@@ -206,9 +221,15 @@ public class UserService implements UserPortIn {
     return user;
   }
 
+  /**
+   * Platform admins can act on a user in any tenant; everyone else only within their own.
+   */
   private User findByIdOrThrow(String id) {
-    String tenantId = currentUserProvider.getCurrentUser().getTenantId();
-    return userPortOut.findByIdAndTenantId(id, tenantId)
+    User current = currentUserProvider.getCurrentUser();
+    if (current.isPlatformAdmin()) {
+      return userPortOut.findById(id).orElseThrow(() -> new NotFoundException("User not found with ID: " + id));
+    }
+    return userPortOut.findByIdAndTenantId(id, current.getTenantId())
         .orElseThrow(() -> new NotFoundException("User not found with ID: " + id));
   }
 
@@ -231,8 +252,13 @@ public class UserService implements UserPortIn {
     return sb.toString();
   }
 
-  private static UserDTO toDTO(User user) {
+  private UserDTO toDTO(User user) {
+    String tenantName = tenantRepository.findById(user.getTenantId()).map(Tenant::getName).orElse(null);
+    return toDTO(user, tenantName);
+  }
+
+  private static UserDTO toDTO(User user, String tenantName) {
     return new UserDTO(user.getId(), user.getUsername(), user.getFullName(), user.getEmail(), user.getRole(),
-        user.isActive(), user.isMustChangePassword(), user.getTenantId());
+        user.isActive(), user.isMustChangePassword(), user.getTenantId(), tenantName);
   }
 }

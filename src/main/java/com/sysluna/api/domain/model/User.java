@@ -49,4 +49,9 @@ public class User extends BaseModel {
 
   @Column(name = "must_change_password", nullable = false)
   private boolean mustChangePassword = false;
+
+  // Cross-tenant reach, independent of role (still ADMIN/USER within their own tenant).
+  // No API grants this - see the V3 migration that adds this column.
+  @Column(name = "platform_admin", nullable = false)
+  private boolean platformAdmin = false;
 }

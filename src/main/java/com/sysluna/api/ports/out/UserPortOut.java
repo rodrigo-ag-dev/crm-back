@@ -11,5 +11,9 @@ public interface UserPortOut {
   Optional<User> findById(String id);
   Optional<User> findByIdAndTenantId(String id, String tenantId);
   List<User> findAllByTenantId(String tenantId);
+
+  /** Unscoped - only ever call this from a path already gated on User.isPlatformAdmin(). */
+  List<User> findAll();
+
   User save(User user);
 }

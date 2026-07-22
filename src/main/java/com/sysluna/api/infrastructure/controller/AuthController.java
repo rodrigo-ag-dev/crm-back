@@ -102,8 +102,7 @@ public class AuthController {
   @Operation(summary = "Current user", description = "Returns the currently authenticated user")
   public ResponseEntity<UserDTO> currentUser() {
     User user = currentUserProvider.getCurrentUser();
-    return ResponseEntity.ok(new UserDTO(user.getId(), user.getUsername(), user.getFullName(), user.getEmail(),
-        user.getRole(), user.isActive(), user.isMustChangePassword(), user.getTenantId()));
+    return ResponseEntity.ok(userService.getUserByEmail(user.getEmail()));
   }
 
   @PostMapping("/change-password")
@@ -130,8 +129,7 @@ public class AuthController {
         passwordEncoder);
 
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(new UserDTO(savedUser.getId(), savedUser.getUsername(), savedUser.getFullName(), savedUser.getEmail(),
-            savedUser.getRole(), savedUser.isActive(), savedUser.isMustChangePassword(), savedUser.getTenantId()));
+        .body(userService.getUserByEmail(savedUser.getEmail()));
   }
 
   private ResponseCookie buildTokenCookie(String value, long maxAgeSeconds) {
