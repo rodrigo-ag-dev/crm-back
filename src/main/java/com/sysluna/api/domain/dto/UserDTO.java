@@ -17,9 +17,10 @@ public class UserDTO {
   private boolean mustChangePassword;
   private String tenantId;
   private String tenantName;
+  private boolean platformAdmin;
 
   public UserDTO(String id, String username, String fullName, String email, Role role, boolean active,
-      boolean mustChangePassword, String tenantId, String tenantName) {
+      boolean mustChangePassword, String tenantId, String tenantName, boolean platformAdmin) {
     this.id = id;
     this.username = username;
     this.fullName = fullName;
@@ -29,5 +30,6 @@ public class UserDTO {
     this.mustChangePassword = mustChangePassword;
     this.tenantId = tenantId;
     this.tenantName = tenantName;
+    this.platformAdmin = platformAdmin;
   }
 }

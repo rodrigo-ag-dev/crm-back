@@ -38,6 +38,10 @@ public class CurrentUserProvider {
     return getCurrentUser().getRole() == Role.ADMIN;
   }
 
+  public boolean isPlatformAdmin() {
+    return getCurrentUser().isPlatformAdmin();
+  }
+
   public void requireSelfOrAdmin(String userId) {
     User current = getCurrentUser();
     if (current.getRole() != Role.ADMIN && !current.getId().equals(userId)) {

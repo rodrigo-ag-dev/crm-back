@@ -11,6 +11,10 @@ import lombok.Setter;
 @Schema(description = "Request to create a new user")
 public class CreateUserRequest {
 
+  @Schema(description = "Tenant slug to create the user in. Ignored unless the caller is a "
+      + "platform admin - everyone else always creates users in their own tenant.", example = "acme")
+  private String tenantSlug;
+
   @NotBlank(message = "Username is required")
   @Schema(description = "Username", example = "joao_silva")
   private String username;

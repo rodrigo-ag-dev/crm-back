@@ -29,10 +29,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       "/api/auth/logout",
       "/api/auth/change-password");
 
+  // POST /api/tenants is provisioning-secret-gated, not JWT-gated (see TenantController) -
+  // it's deliberately NOT listed here though, since GET /api/tenants (list, for platform
+  // admins) needs the normal JWT flow to resolve who's calling. POST works fine without
+  // being public: no JWT cookie is ever sent to it, so the filter just no-ops and
+  // SecurityConfig's explicit permitAll for that method+path takes over.
   private static final Set<String> PUBLIC_PATHS = Set.of(
       "/api/healthcheck",
       "/api/setup",
-      "/api/tenants",
       "/api/auth/login",
       "/api/auth/register",
       "/api/auth/logout",

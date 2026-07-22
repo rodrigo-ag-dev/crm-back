@@ -2,10 +2,12 @@ package com.sysluna.api.infrastructure.controller;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -16,34 +18,50 @@ import com.sysluna.api.application.TenantProvisioningService;
 import com.sysluna.api.domain.dto.CreateTenantRequest;
 import com.sysluna.api.domain.dto.TenantDTO;
 import com.sysluna.api.domain.exception.UnauthorizedException;
+import com.sysluna.api.infrastructure.security.CurrentUserProvider;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * Provisions new tenants (companies). There is no "platform admin" role yet - only
- * per-tenant ADMIN/USER (see Role) - so this is deliberately not gated by the regular
- * JWT/role security, which would let any tenant's admin provision schemas for other
- * companies. Instead it's gated by a standing shared secret (APP_PROVISIONING_SECRET),
- * the same pattern as an ops/webhook endpoint. Revisit this if/when a real platform
- * operator role is introduced.
+ * Two very different access models on the same resource:
+ *  - POST (provisioning a new tenant/schema) is gated by a standing shared secret
+ *    (APP_PROVISIONING_SECRET), the same pattern as an ops/webhook endpoint - there is no
+ *    "platform admin" *role* wired into Spring Security, so this can't be a normal
+ *    @PreAuthorize check without letting any tenant's ADMIN provision schemas for other
+ *    companies.
+ *  - GET (listing tenants, e.g. to populate a tenant picker) is gated by the regular JWT
+ *    session plus User.isPlatformAdmin() - safe to expose to a logged-in platform admin,
+ *    unlike POST which does real, potentially expensive provisioning work.
  */
 @RestController
 @RequestMapping("/api/tenants")
-@Tag(name = "Tenants", description = "Tenant provisioning (ops-only)")
+@Tag(name = "Tenants", description = "Tenant provisioning and listing")
 public class TenantController {
 
   private static final String SECRET_HEADER = "X-Provisioning-Key";
 
   private final TenantProvisioningService tenantProvisioningService;
+  private final CurrentUserProvider currentUserProvider;
   private final String provisioningSecret;
 
   public TenantController(
       TenantProvisioningService tenantProvisioningService,
+      CurrentUserProvider currentUserProvider,
       @Value("${app.provisioning.secret}") String provisioningSecret) {
     this.tenantProvisioningService = tenantProvisioningService;
+    this.currentUserProvider = currentUserProvider;
     this.provisioningSecret = provisioningSecret;
+  }
+
+  @GetMapping
+  @Operation(summary = "List tenants", description = "Returns every tenant (platform admin only)")
+  public List<TenantDTO> listTenants() {
+    if (!currentUserProvider.isPlatformAdmin()) {
+      throw new UnauthorizedException("Only platform admins can list tenants.");
+    }
+    return tenantProvisioningService.listTenants();
   }
 
   @PostMapping

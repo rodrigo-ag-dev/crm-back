@@ -1,5 +1,7 @@
 package com.sysluna.api.application;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.sysluna.api.domain.dto.CreateTenantRequest;
@@ -50,6 +52,11 @@ public class TenantProvisioningService {
     tenantFlywayMigrator.migrate(schemaName);
 
     return toDTO(tenant);
+  }
+
+  /** Caller is responsible for checking User.isPlatformAdmin() before calling this. */
+  public List<TenantDTO> listTenants() {
+    return tenantRepository.findAll().stream().map(TenantProvisioningService::toDTO).toList();
   }
 
   private static TenantDTO toDTO(Tenant tenant) {

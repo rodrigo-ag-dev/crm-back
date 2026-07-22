@@ -9,6 +9,8 @@ import lombok.Setter;
 @Setter
 public class UpdateUserRequest {
 
+  private String tenantSlug;
+
   @NotBlank(message = "Username is required")
   private String username;
 

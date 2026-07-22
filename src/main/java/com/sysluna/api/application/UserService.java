@@ -151,12 +151,13 @@ public class UserService implements UserPortIn {
       throw new BusinessException("Email is already registered");
     }
 
+    User current = currentUserProvider.getCurrentUser();
+
     User user = new User();
-    // Tenant is always the current admin's own tenant - never accept it from the
-    // request body, or an admin from one tenant could create users in another tenant.
-    // This holds even for platform admins: creating a user in another tenant isn't
-    // supported yet, only viewing/managing existing ones across tenants is.
-    user.setTenantId(currentUserProvider.getCurrentUser().getTenantId());
+    // Tenant is the current admin's own tenant by default. A platform admin may instead
+    // target any tenant by slug - everyone else can't, or an admin from one tenant could
+    // create users in another tenant just by sending a different tenantSlug.
+    user.setTenantId(resolveTargetTenantId(current, createUserRequest.getTenantSlug()));
     user.setUsername(createUserRequest.getUsername());
     user.setFullName(createUserRequest.getFullName());
     user.setEmail(createUserRequest.getEmail());
@@ -174,6 +175,11 @@ public class UserService implements UserPortIn {
     User existingWithEmail = userPortOut.findByEmail(updateUserRequest.getEmail());
     if (existingWithEmail != null && !existingWithEmail.getId().equals(id)) {
       throw new BusinessException("Email is already registered");
+    }
+
+    User current = currentUserProvider.getCurrentUser();
+    if (current.isPlatformAdmin() && isPresent(updateUserRequest.getTenantSlug())) {
+      user.setTenantId(resolveTenantBySlugOrThrow(updateUserRequest.getTenantSlug()).getId());
     }
 
     user.setUsername(updateUserRequest.getUsername());
@@ -234,7 +240,11 @@ public class UserService implements UserPortIn {
   }
 
   private Tenant resolveTenantOrThrow(String tenantSlug) {
-    String slug = (tenantSlug == null || tenantSlug.isBlank()) ? defaultTenantSlug : tenantSlug;
+    String slug = isPresent(tenantSlug) ? tenantSlug : defaultTenantSlug;
+    return resolveTenantBySlugOrThrow(slug);
+  }
+
+  private Tenant resolveTenantBySlugOrThrow(String slug) {
     Tenant tenant = tenantRepository.findBySlug(slug)
         .orElseThrow(() -> new NotFoundException("Tenant not found: " + slug));
 
@@ -242,6 +252,18 @@ public class UserService implements UserPortIn {
       throw new BusinessException("Tenant is inactive: " + tenant.getSlug());
     }
     return tenant;
+  }
+
+  /** Platform admins may target any tenant by slug; everyone else stays in their own. */
+  private String resolveTargetTenantId(User currentUser, String requestedTenantSlug) {
+    if (currentUser.isPlatformAdmin() && isPresent(requestedTenantSlug)) {
+      return resolveTenantBySlugOrThrow(requestedTenantSlug).getId();
+    }
+    return currentUser.getTenantId();
+  }
+
+  private static boolean isPresent(String value) {
+    return value != null && !value.isBlank();
   }
 
   private static String generateTemporaryPassword() {
@@ -259,6 +281,6 @@ public class UserService implements UserPortIn {
 
   private static UserDTO toDTO(User user, String tenantName) {
     return new UserDTO(user.getId(), user.getUsername(), user.getFullName(), user.getEmail(), user.getRole(),
-        user.isActive(), user.isMustChangePassword(), user.getTenantId(), tenantName);
+        user.isActive(), user.isMustChangePassword(), user.getTenantId(), tenantName, user.isPlatformAdmin());
   }
 }
