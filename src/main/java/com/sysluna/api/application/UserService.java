@@ -155,9 +155,9 @@ public class UserService implements UserPortIn {
 
     User user = new User();
     // Tenant is the current admin's own tenant by default. A platform admin may instead
-    // target any tenant by slug - everyone else can't, or an admin from one tenant could
-    // create users in another tenant just by sending a different tenantSlug.
-    user.setTenantId(resolveTargetTenantId(current, createUserRequest.getTenantSlug()));
+    // target any tenant by id - everyone else can't, or an admin from one tenant could
+    // create users in another tenant just by sending a different tenantId.
+    user.setTenantId(resolveTargetTenantId(current, createUserRequest.getTenantId()));
     user.setUsername(createUserRequest.getUsername());
     user.setFullName(createUserRequest.getFullName());
     user.setEmail(createUserRequest.getEmail());
@@ -178,8 +178,8 @@ public class UserService implements UserPortIn {
     }
 
     User current = currentUserProvider.getCurrentUser();
-    if (current.isPlatformAdmin() && isPresent(updateUserRequest.getTenantSlug())) {
-      user.setTenantId(resolveTenantBySlugOrThrow(updateUserRequest.getTenantSlug()).getId());
+    if (current.isPlatformAdmin() && isPresent(updateUserRequest.getTenantId())) {
+      user.setTenantId(resolveTenantByIdOrThrow(updateUserRequest.getTenantId()).getId());
     }
 
     user.setUsername(updateUserRequest.getUsername());
@@ -254,12 +254,22 @@ public class UserService implements UserPortIn {
     return tenant;
   }
 
-  /** Platform admins may target any tenant by slug; everyone else stays in their own. */
-  private String resolveTargetTenantId(User currentUser, String requestedTenantSlug) {
-    if (currentUser.isPlatformAdmin() && isPresent(requestedTenantSlug)) {
-      return resolveTenantBySlugOrThrow(requestedTenantSlug).getId();
+  /** Platform admins may target any tenant by id; everyone else stays in their own. */
+  private String resolveTargetTenantId(User currentUser, String requestedTenantId) {
+    if (currentUser.isPlatformAdmin() && isPresent(requestedTenantId)) {
+      return resolveTenantByIdOrThrow(requestedTenantId).getId();
     }
     return currentUser.getTenantId();
+  }
+
+  private Tenant resolveTenantByIdOrThrow(String id) {
+    Tenant tenant = tenantRepository.findById(id)
+        .orElseThrow(() -> new NotFoundException("Tenant not found: " + id));
+
+    if (!tenant.isActive()) {
+      throw new BusinessException("Tenant is inactive: " + tenant.getSlug());
+    }
+    return tenant;
   }
 
   private static boolean isPresent(String value) {
