@@ -72,6 +72,13 @@ schema is known (e.g. at login), and email is unique across the whole platform, 
   default `default` → schema `crm_default`) rather than `public`, since `public` has no business tables. This never
   fires on real authenticated traffic — every business request has `TenantContext` set before touching a
   tenant-scoped repository.
+- **DB_URL must be a *direct* (non-pooled) Postgres connection, never a transaction-mode pooler (e.g. Neon's
+  `-pooler` hostname / PgBouncer).** A transaction-mode pooler can silently swap the backend Postgres session
+  between the `SET search_path` statement and the query that follows it, making tenant resolution randomly fail
+  with "relation does not exist" - intermittent, load-dependent, and very confusing to debug. The app already does
+  its own pooling via HikariCP (tuned small on purpose - see `spring.datasource.hikari.*` in
+  `application.properties` - since a direct connection consumes a real Postgres connection slot, and free-tier
+  Postgres hosts cap those low), so a pooler in front of it is redundant at best, actively broken at worst.
 - **Never trust a client-supplied tenant.** The tenant for a write always comes from the authenticated principal
   (`CurrentUserProvider.getCurrentUser().getTenantId()`), never from a request body field — see
   `UserService.createUser` for the pattern (an admin creating a user always stamps the admin's own tenant).
