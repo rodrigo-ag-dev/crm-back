@@ -4,6 +4,8 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +27,8 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 public class RestExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
   @ExceptionHandler(BusinessException.class)
   public ResponseEntity<ProblemDetail> handleBusinessException(
@@ -101,6 +105,11 @@ public class RestExceptionHandler {
   public ResponseEntity<ProblemDetail> handleGenericException(
       Exception ex,
       HttpServletRequest request) {
+    // Full stack trace, always - this is the catch-all for anything not handled above,
+    // so without this log line a 500 leaves zero trace anywhere (the client only ever
+    // sees the generic "Unexpected error." detail, by design - see
+    // spring.web.error.include-stacktrace=never).
+    log.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), ex);
     return buildProblemDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error.", request.getRequestURI());
   }
 
