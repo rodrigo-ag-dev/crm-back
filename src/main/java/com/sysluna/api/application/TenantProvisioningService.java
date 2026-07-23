@@ -16,7 +16,7 @@ import com.sysluna.api.infrastructure.tenant.TenantFlywayMigrator;
 import com.sysluna.api.infrastructure.tenant.TenantSchemaNames;
 
 /**
- * Creates new tenants: registers them (by slug) in the shared public.tenant table, then
+ * Creates new tenants: registers them (by slug) in the shared crm_setup.tenant table, then
  * provisions their dedicated Postgres schema (created automatically by Flyway, named
  * "crm_<slug>" - see TenantSchemaNames.forSlug) and applies the tenant migration
  * template to it.

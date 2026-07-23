@@ -22,11 +22,18 @@ public final class TenantSchemaNames {
    */
   public static final String TENANT_SCHEMA_PREFIX = "crm_";
 
+  /**
+   * The shared schema holding the cross-tenant identity tables (Tenant, User - see their
+   * @Table(schema = ...)). Reserved below so no tenant slug can ever collide with it (a
+   * slug of "setup" would otherwise compute to this exact schema name via forSlug).
+   */
+  public static final String IDENTITY_SCHEMA = "crm_setup";
+
   private static final Pattern SAFE_SLUG = Pattern.compile("^[a-z][a-z0-9_]{1,45}$");
   private static final Pattern SAFE_SCHEMA_NAME = Pattern.compile("^[a-z][a-z0-9_]{1,50}$");
 
   private static final Set<String> RESERVED = Set.of(
-      "public", "pg_catalog", "information_schema", "pg_toast");
+      IDENTITY_SCHEMA, "public", "pg_catalog", "information_schema", "pg_toast");
 
   private TenantSchemaNames() {
   }
@@ -36,7 +43,11 @@ public final class TenantSchemaNames {
     if (slug == null || !SAFE_SLUG.matcher(slug).matches()) {
       throw new IllegalArgumentException("Invalid tenant slug: " + slug);
     }
-    return TENANT_SCHEMA_PREFIX + slug;
+    String schemaName = TENANT_SCHEMA_PREFIX + slug;
+    if (!isValid(schemaName)) {
+      throw new IllegalArgumentException("Invalid tenant slug: " + slug);
+    }
+    return schemaName;
   }
 
   public static boolean isValid(String schemaName) {

@@ -50,7 +50,7 @@ A new feature typically touches five files: entity in `domain/model`, DTO in `do
 - RBAC: `CustomUserDetailsService` grants `ROLE_<user.role>` (`ADMIN` or `USER`). `@EnableMethodSecurity` is on; admin-only endpoints use `@PreAuthorize("hasRole('ADMIN')")` (see `UserController.listUsers`, `StageController`/`ParameterController` mutation endpoints). `CurrentUserProvider.requireSelfOrAdmin(userId)` guards per-user endpoints (e.g. user-specific parameters) where a plain role check isn't enough.
 - `User.platformAdmin` (boolean, default false) is a separate axis from `Role` - it grants cross-tenant reach (see `UserService.listAllUsers`/`findByIdOrThrow`, which branch on it instead of scoping to the caller's own tenant) while the user is still just `ADMIN`/`USER` *within* their own tenant. No API grants it; set it directly in the DB, same as the very first tenant admin:
   ```sql
-  UPDATE public."user" SET platform_admin = true WHERE email = '...';
+  UPDATE crm_setup."user" SET platform_admin = true WHERE email = '...';
   ```
 - Ownership scoping for Deal/Ticket is **not** a security-layer concern — it's baked into the repository queries themselves (`findByIdAndOwnerId`) and a private `getCurrentUserId()` helper in each service that resolves `SecurityContextHolder`'s authenticated email to a `User.id`. If you add a new Deal/Ticket endpoint, follow that existing pattern rather than trusting a `userId`/`ownerId` field from the request body.
 
@@ -58,20 +58,21 @@ A new feature typically touches five files: entity in `domain/model`, DTO in `do
 
 Business entities (Deal, Ticket, Company, Contact, Stage, TicketStage, Parameter, UserParameter) live in a
 **per-tenant Postgres schema**, resolved dynamically per request. `Tenant` and `User` are the only entities pinned
-to the shared `public` schema (`@Table(schema = "public")`) — identity has to be resolvable before any tenant
-schema is known (e.g. at login), and email is unique across the whole platform, not per tenant.
+to the shared identity schema, `crm_setup` (`@Table(schema = TenantSchemaNames.IDENTITY_SCHEMA)`) — identity has to
+be resolvable before any tenant business schema is known (e.g. at login), and email is unique across the whole
+platform, not per tenant. `crm_setup` is reserved in `TenantSchemaNames` so no tenant slug can ever collide with it.
 
 - **Request-time resolution**: `JwtAuthenticationFilter`, right after building the `AppUserPrincipal` (which
   `CustomUserDetailsService` loads with the user's `tenantId`/`tenantSchema`), sets `TenantContext` (a ThreadLocal)
   for the duration of the request and clears it in a `finally` block. `TenantIdentifierResolver` (Hibernate's
   `CurrentTenantIdentifierResolver`) reads it; `SchemaMultiTenantConnectionProvider` runs `SET search_path` on the
-  JDBC connection Hibernate acquires for that unit of work, and resets it to `public` before the connection returns
-  to the Hikari pool — resetting on release is essential, since pooled connections are reused across tenants.
+  JDBC connection Hibernate acquires for that unit of work, and resets it to Postgres' own built-in `public` schema
+  (unrelated to `crm_setup` - just a safe idle default) before the connection returns to the Hikari pool —
+  resetting on release is essential, since pooled connections are reused across tenants.
 - **Fallback**: outside an authenticated request (tests calling repositories directly, startup jobs),
-  `TenantIdentifierResolver` falls back to the default tenant's schema (computed from `app.tenant.default-slug`,
-  default `default` → schema `crm_default`) rather than `public`, since `public` has no business tables. This never
-  fires on real authenticated traffic — every business request has `TenantContext` set before touching a
-  tenant-scoped repository.
+  `TenantIdentifierResolver` falls back to the default tenant's business schema (computed from
+  `app.tenant.default-slug`, default `default` → schema `crm_default`). This never fires on real authenticated
+  traffic — every business request has `TenantContext` set before touching a tenant-scoped repository.
 - **DB_URL must be a *direct* (non-pooled) Postgres connection, never a transaction-mode pooler (e.g. Neon's
   `-pooler` hostname / PgBouncer).** A transaction-mode pooler can silently swap the backend Postgres session
   between the `SET search_path` statement and the query that follows it, making tenant resolution randomly fail
@@ -84,10 +85,9 @@ schema is known (e.g. at login), and email is unique across the whole platform, 
   `UserService.createUser` for the pattern (an admin creating a user always stamps the admin's own tenant).
 - **Naming**: `Tenant` only ever persists the bare `slug` (e.g. `acme`) — the physical Postgres schema name
   (`crm_<slug>`, e.g. `crm_acme`) is *never stored*, always computed on the fly via `TenantSchemaNames.forSlug`.
-  Every tenant follows this convention uniformly, no exceptions (a pre-multi-tenancy legacy `crm` schema, if one
-  exists, is migrated to slug `default` → renamed to `crm_default` by the V1/V2 global migrations). `tenantSlug`
-  fields elsewhere (`POST /api/setup`, `POST /api/auth/register`) take that same bare slug — never the schema name.
-- **Provisioning**: `TenantProvisioningService.createTenant` inserts a `public.tenant` row, then
+  Every tenant follows this convention uniformly, no exceptions. `tenantSlug` fields elsewhere (`POST /api/setup`,
+  `POST /api/auth/register`) take that same bare slug — never the schema name.
+- **Provisioning**: `TenantProvisioningService.createTenant` inserts a `crm_setup.tenant` row, then
   `TenantFlywayMigrator` runs the tenant migration set against that schema (Flyway creates the schema if missing).
   Idempotent by slug — safe to retry. `TenantMigrationRunner` (an `ApplicationRunner`) does the same for every
   registered tenant on every boot, so newly added tenant migrations reach already-provisioned tenants, and
@@ -105,13 +105,13 @@ schema is known (e.g. at login), and email is unique across the whole platform, 
 
 ## Database
 
-- **Global** migrations (`src/main/resources/db/migration/global/`) manage the shared `public` schema (`tenant`,
-  `user`) via Spring Boot's auto-configured Flyway (`spring.flyway.schemas=public`).
+- **Global** migrations (`src/main/resources/db/migration/global/`) manage the shared `crm_setup` schema (`tenant`,
+  `user`) via Spring Boot's auto-configured Flyway (`spring.flyway.schemas=crm_setup`).
 - **Tenant** migrations (`src/main/resources/db/migration/tenant/`) are the template applied to every tenant's own
   schema by `TenantFlywayMigrator`/`TenantMigrationRunner` (own schema-history table, `flyway_tenant_history`, per
-  schema). Table names in this location are intentionally **unqualified** (no `crm.` prefix) since the same file
+  schema). Table names in this location are intentionally **unqualified** (no schema prefix) since the same file
   runs against whichever schema Flyway is pointed at for that run; foreign keys to the user table are qualified as
-  `public."user"(id)` since identity is shared, not per-tenant.
+  `crm_setup."user"(id)` since identity is shared, not per-tenant.
 - **Legacy** (`src/main/resources/db/migration/legacy/`) holds the original single-schema `V1__create_full_schema.sql`
   for historical reference only — no active Flyway config points at it anymore.
 - Migration files are append-only within each of these sets — never edit a shipped migration; add a new

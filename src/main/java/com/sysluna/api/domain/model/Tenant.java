@@ -9,9 +9,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import com.sysluna.api.infrastructure.tenant.TenantSchemaNames;
+
 /**
- * Registry of tenants (companies using the CRM). Always lives in the shared "public"
- * schema so it can be resolved before any tenant schema is known (e.g. at login).
+ * Registry of tenants (companies using the CRM). Always lives in the shared identity
+ * schema ({@link TenantSchemaNames#IDENTITY_SCHEMA}) so it can be resolved before any
+ * tenant business schema is known (e.g. at login).
  *
  * Only the short, human-chosen {@link #slug} is persisted - the tenant's actual Postgres
  * schema name is never stored, always computed on the fly from the slug (see
@@ -20,7 +23,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "tenant", schema = "public")
+@Table(name = "tenant", schema = TenantSchemaNames.IDENTITY_SCHEMA)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

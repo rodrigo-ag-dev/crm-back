@@ -1,7 +1,7 @@
 -- Per-tenant business schema template. Applied by TenantFlywayMigrator against each
 -- tenant's own Postgres schema (schema is selected via Flyway's `schemas` config for
 -- this run, so table names here are intentionally unqualified). User-reference columns
--- point at the single, global public."user" table (see db/migration/global) rather than
+-- point at the single, global crm_setup."user" table (see db/migration/global) rather than
 -- a per-tenant user table, since identity/login is shared across the whole platform.
 
 CREATE TABLE IF NOT EXISTS parameter (
@@ -20,14 +20,14 @@ CREATE TABLE IF NOT EXISTS parameter_user (
     value VARCHAR(255) NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES crm_setup."user"(id) ON DELETE CASCADE,
     FOREIGN KEY (parameter_id) REFERENCES parameter(id) ON DELETE CASCADE,
     UNIQUE (user_id, parameter_id)
 );
 
 CREATE TABLE IF NOT EXISTS log (
     id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+    user_id VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
     value TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS deal (
     id VARCHAR(36) PRIMARY KEY,
     company_id VARCHAR(36) NOT NULL REFERENCES company(id) ON DELETE CASCADE,
     contact_id VARCHAR(36) NOT NULL REFERENCES contact(id) ON DELETE CASCADE,
-    owner_id VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+    owner_id VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
     stage_id VARCHAR(36) REFERENCES stage(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS deal_stage_history (
     deal_id VARCHAR(36) REFERENCES deal(id) ON DELETE CASCADE,
     from_stage_id VARCHAR(36) REFERENCES stage(id) ON DELETE SET NULL,
     to_stage_id VARCHAR(36) REFERENCES stage(id) ON DELETE SET NULL,
-    changed_by_id VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+    changed_by_id VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS deal_activity (
   type VARCHAR(50),
   subject VARCHAR(255),
   due_date TIMESTAMP,
-  owner_id VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+  owner_id VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   activity_id VARCHAR(36) REFERENCES deal_activity(id) ON DELETE CASCADE,
   action VARCHAR(50),
   notes TEXT,
-  performed_by VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+  performed_by VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
   performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   entity_type VARCHAR(50) NOT NULL,
   entity_id VARCHAR(36) NOT NULL,
   action VARCHAR(50) NOT NULL,
-  changed_by VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+  changed_by VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
   changes JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS ticket (
     id VARCHAR(36) PRIMARY KEY,
     company_id VARCHAR(36) NOT NULL REFERENCES company(id) ON DELETE CASCADE,
     contact_id VARCHAR(36) NOT NULL REFERENCES contact(id) ON DELETE CASCADE,
-    owner_id VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+    owner_id VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
     ticket_stage_id VARCHAR(36) REFERENCES ticket_stage(id) ON DELETE SET NULL,
     canceled_stage_id VARCHAR(36) REFERENCES ticket_stage(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
@@ -198,14 +198,14 @@ CREATE TABLE IF NOT EXISTS ticket_stage_history (
     ticket_id VARCHAR(36) REFERENCES ticket(id) ON DELETE CASCADE,
     from_stage_id VARCHAR(36) REFERENCES ticket_stage(id) ON DELETE SET NULL,
     to_stage_id VARCHAR(36) REFERENCES ticket_stage(id) ON DELETE SET NULL,
-    changed_by_id VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+    changed_by_id VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS ticket_comment (
     id VARCHAR(36) PRIMARY KEY,
     ticket_id VARCHAR(36) NOT NULL REFERENCES ticket(id) ON DELETE CASCADE,
-    author_id VARCHAR(36) REFERENCES public."user"(id) ON DELETE SET NULL,
+    author_id VARCHAR(36) REFERENCES crm_setup."user"(id) ON DELETE SET NULL,
     type VARCHAR(30) NOT NULL,
     body TEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

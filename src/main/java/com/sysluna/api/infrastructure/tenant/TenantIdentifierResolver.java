@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
  * calling repositories directly). This is safe: every authenticated business request has
  * TenantContext set by JwtAuthenticationFilter before any tenant-scoped repository runs,
  * so the fallback never fires on real traffic. Global entities (Tenant, User) are
- * unaffected either way since they're pinned to the "public" schema via
- * @Table(schema = "public").
+ * unaffected either way since they're pinned to the identity schema via
+ * @Table(schema = TenantSchemaNames.IDENTITY_SCHEMA).
  */
 @Component
 public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver<String> {

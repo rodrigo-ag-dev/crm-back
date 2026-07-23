@@ -30,15 +30,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * Two very different access models on the same resource:
- *  - POST (provisioning a new tenant/schema) is gated by a standing shared secret
- *    (APP_PROVISIONING_SECRET), the same pattern as an ops/webhook endpoint - there is no
- *    "platform admin" *role* wired into Spring Security, so this can't be a normal
- *    @PreAuthorize check without letting any tenant's ADMIN provision schemas for other
- *    companies.
- *  - GET (listing tenants, e.g. to populate a tenant picker) is gated by the regular JWT
- *    session plus User.isPlatformAdmin() - safe to expose to a logged-in platform admin,
- *    unlike POST which does real, potentially expensive provisioning work.
+ * POST (provisioning a new tenant/schema) accepts either the standing shared secret
+ * (APP_PROVISIONING_SECRET header, the same pattern as an ops/webhook endpoint - for
+ * scripts/CI with no logged-in user) OR a regular JWT session belonging to a platform
+ * admin (User.isPlatformAdmin() - for the in-app "create tenant" screen). Both checks are
+ * done here rather than via @PreAuthorize, since there's no "platform admin" *role* wired
+ * into Spring Security - a plain role check would let any tenant's ADMIN provision
+ * schemas for other companies.
+ *
+ * GET (listing tenants, e.g. to populate a tenant picker) is JWT + platform-admin only;
+ * unlike POST it has no ops/secret fallback, since there's no legitimate scripted use case
+ * for it and it would be one more way to leak tenant data if the secret ever leaked.
  */
 @RestController
 @RequestMapping("/api/tenants")
@@ -91,12 +93,13 @@ public class TenantController {
   }
 
   @PostMapping
-  @Operation(summary = "Create tenant", description = "Provisions a new tenant schema (ops-only, requires X-Provisioning-Key)")
+  @Operation(summary = "Create tenant", description = "Provisions a new tenant schema (platform admin, or ops via X-Provisioning-Key)")
   public ResponseEntity<TenantDTO> createTenant(
-      @RequestHeader(SECRET_HEADER) String providedSecret,
+      @RequestHeader(value = SECRET_HEADER, required = false) String providedSecret,
       @Valid @RequestBody CreateTenantRequest request) {
-    if (!constantTimeEquals(providedSecret, provisioningSecret)) {
-      throw new UnauthorizedException("Invalid provisioning key.");
+    boolean validSecret = constantTimeEquals(providedSecret, provisioningSecret);
+    if (!validSecret && !currentUserProvider.isAuthenticatedPlatformAdmin()) {
+      throw new UnauthorizedException("Only platform admins (or a valid provisioning key) can create tenants.");
     }
     TenantDTO created = tenantProvisioningService.createTenant(request);
     return ResponseEntity.status(HttpStatus.CREATED).body(created);

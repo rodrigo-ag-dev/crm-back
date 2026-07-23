@@ -1,6 +1,7 @@
 package com.sysluna.api.domain.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.sysluna.api.infrastructure.tenant.TenantSchemaNames;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,7 +17,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"user\"", schema = "public")
+@Table(name = "\"user\"", schema = TenantSchemaNames.IDENTITY_SCHEMA)
 @NoArgsConstructor
 @AllArgsConstructor
 public class User extends BaseModel {

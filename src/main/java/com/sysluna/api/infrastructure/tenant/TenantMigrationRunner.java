@@ -11,7 +11,7 @@ import com.sysluna.api.infrastructure.repository.TenantRepository;
 
 /**
  * Runs at application startup, after the global Flyway migration (db/migration/global)
- * has created public.tenant: ensures a default tenant exists (so a fresh install works
+ * has created crm_setup.tenant: ensures a default tenant exists (so a fresh install works
  * out of the box, matching the previous single-tenant setup flow) and applies the
  * tenant migration template to every registered tenant's physical schema (computed from
  * its slug via TenantSchemaNames.forSlug - never read off a stored column). Re-running

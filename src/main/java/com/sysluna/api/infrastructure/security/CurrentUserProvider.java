@@ -42,6 +42,15 @@ public class CurrentUserProvider {
     return getCurrentUser().isPlatformAdmin();
   }
 
+  /** Same as isPlatformAdmin(), but false (not an exception) when nobody is logged in. */
+  public boolean isAuthenticatedPlatformAdmin() {
+    try {
+      return isPlatformAdmin();
+    } catch (UnauthorizedException e) {
+      return false;
+    }
+  }
+
   public void requireSelfOrAdmin(String userId) {
     User current = getCurrentUser();
     if (current.getRole() != Role.ADMIN && !current.getId().equals(userId)) {
